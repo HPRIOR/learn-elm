@@ -1,7 +1,5 @@
 module PhotoGroove exposing (main)
 
--- import Array exposing (Array)
-
 import Browser exposing (..)
 import Html exposing (..)
 import Html.Attributes exposing (..)
@@ -39,10 +37,9 @@ view : Model -> Html Msg
 view model =
     div [ class "content" ]
         [ h1 [] [ text "PhotoGroove" ]
+        , button [ onClick { description = "ClickedSupriseMe", data = "" } ] [ text "Suprise Me!" ]
         , div [ id "thumbnails" ]
             (model.photos |> List.map (getThumbnailUrls model.selectedUrl))
-
-        -- returns a list of images which are the children of the div
         , img
             [ class "large"
             , src (urlPrefix ++ "large/" ++ model.selectedUrl)
@@ -58,20 +55,20 @@ initModel =
     }
 
 
-
--- photoArray : Array PhotoUrl
--- photoArray =
---     Array.fromList initModel.photos
-
-
+update : Msg -> Model -> Model
 update msg model =
-    if msg.description == "ClickedPhoto" then
-        { model | selectedUrl = msg.data }
+    case msg.description of
+        "ClickedPhoto" ->
+            { model | selectedUrl = msg.data }
 
-    else
-        model
+        "ClickedSupriseMe" ->
+            { model | selectedUrl = "2.jpeg" }
+
+        _ ->
+            model
 
 
+main : Program () Model Msg
 main =
     Browser.sandbox
         { init = initModel

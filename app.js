@@ -5177,10 +5177,21 @@ var $elm$browser$Browser$sandbox = function (impl) {
 };
 var $author$project$PhotoGroove$update = F2(
 	function (msg, model) {
-		return (msg.description === 'ClickedPhoto') ? _Utils_update(
-			model,
-			{selectedUrl: msg.data}) : model;
+		var _v0 = msg.description;
+		switch (_v0) {
+			case 'ClickedPhoto':
+				return _Utils_update(
+					model,
+					{selectedUrl: msg.data});
+			case 'ClickedSupriseMe':
+				return _Utils_update(
+					model,
+					{selectedUrl: '2.jpeg'});
+			default:
+				return model;
+		}
 	});
+var $elm$html$Html$button = _VirtualDom_node('button');
 var $elm$json$Json$Encode$string = _Json_wrap;
 var $elm$html$Html$Attributes$stringProperty = F2(
 	function (key, string) {
@@ -5280,6 +5291,17 @@ var $author$project$PhotoGroove$view = function (model) {
 				_List_fromArray(
 					[
 						$elm$html$Html$text('PhotoGroove')
+					])),
+				A2(
+				$elm$html$Html$button,
+				_List_fromArray(
+					[
+						$elm$html$Html$Events$onClick(
+						{data: '', description: 'ClickedSupriseMe'})
+					]),
+				_List_fromArray(
+					[
+						$elm$html$Html$text('Suprise Me!')
 					])),
 				A2(
 				$elm$html$Html$div,
