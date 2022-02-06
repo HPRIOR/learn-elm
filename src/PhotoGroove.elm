@@ -5,27 +5,28 @@ import Browser exposing (..)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
+import Random
 
 
 type alias PhotoUrl =
     { url : String }
 
 
--- Union type used as message
 type Msg
     = ClickedPhoto String
-    | ClickedSize ThumnailSize
-    | ClickedSupriseMe
+    | ClickedSize ThumbnailSize
+    | ClickedSurpriseMe
+    | GotSelectedIndex Int
 
 
-type ThumnailSize
+type ThumbnailSize
     = Small
     | Medium
     | Large
 
 
 type alias Model =
-    { photos : List PhotoUrl, selectedUrl : String, size : ThumnailSize }
+    { photos : List PhotoUrl, selectedUrl : String, size : ThumbnailSize }
 
 
 urlPrefix : String
@@ -33,15 +34,20 @@ urlPrefix =
     "http://elm-in-action.com/"
 
 
-viewSizeChooser : ThumnailSize -> Html Msg
+viewSizeChooser : ThumbnailSize -> Html Msg
 viewSizeChooser size =
     label []
-        [ input [ type_ "radio", name "size" ] [] -- avoid keyword type
+        [ input
+            [ type_ "radio"
+            , name "size"
+            , onClick (ClickedSize size)
+            ]
+            []
         , text (sizeToString size)
         ]
 
 
-sizeToString : ThumnailSize -> String
+sizeToString : ThumbnailSize -> String
 sizeToString size =
     case size of
         Small ->
@@ -68,9 +74,9 @@ view : Model -> Html Msg
 view model =
     div [ class "content" ]
         [ h1 [] [ text "PhotoGroove" ]
-        , button [ onClick ClickedSupriseMe ] [ text "Suprise Me!" ]
+        , button [ onClick ClickedSurpriseMe ] [ text "Suprise Me!" ]
         , h3 [] [ text "Thumnail Size:" ]
-        , div [ id "choose-size" ] ([ Small, Medium, Large ] |> List.map viewSizeChooser)
+        , div [ id "choose-size" ] <| [ Small, Medium, Large ] |> List.map viewSizeChooser
         , div [ id "thumbnails", class (sizeToString model.size) ]
             (model.photos |> List.map (getThumbnailUrls model.selectedUrl))
         , img
@@ -89,8 +95,18 @@ initModel =
     }
 
 
-getPhotoUrl : Int -> Array PhotoUrl -> String
-getPhotoUrl index photoArray =
+photoArray : Array PhotoUrl
+photoArray =
+    Array.fromList initModel.photos
+
+
+randomPhotoPicker : Random.Generator Int
+randomPhotoPicker =
+    Random.int 0 (Array.length photoArray - 1)
+
+
+getPhotoUrl : Int -> String
+getPhotoUrl index =
     case Array.get index photoArray of
         Just photo ->
             photo.url
@@ -99,25 +115,28 @@ getPhotoUrl index photoArray =
             ""
 
 
-update : Msg -> Model -> Model
+update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-    case msg of -- Union types parsed here 
+    case msg of
+        -- Union types parsed here
         ClickedPhoto url ->
-            { model | selectedUrl = url }
+            ( { model | selectedUrl = url }, Cmd.none )
 
-        ClickedSupriseMe ->
-            { model | selectedUrl = "2.jpeg" }
+        ClickedSurpriseMe ->
+            ( model, Random.generate GotSelectedIndex randomPhotoPicker )
 
-        ClickedSize thumbnailSize -> 
-            {model | size = thumbnailSize }
+        ClickedSize thumbnailSize ->
+            ( { model | size = thumbnailSize }, Cmd.none )
 
-
+        GotSelectedIndex index ->
+            ( { model | selectedUrl = getPhotoUrl index }, Cmd.none )
 
 
 main : Program () Model Msg
 main =
-    Browser.sandbox
-        { init = initModel
+    Browser.element
+        { init = \flags -> ( initModel, Cmd.none )
         , view = view
         , update = update
+        , subscriptions = \model -> Sub.none
         }
