@@ -1,19 +1,21 @@
 module PhotoGroove exposing (main)
 
-import Array
+import Array exposing (Array)
 import Browser exposing (..)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
-import Array exposing (Array)
 
 
 type alias PhotoUrl =
     { url : String }
 
 
-type alias Msg =
-    { description : String, data : String }
+-- Union type used as message
+type Msg
+    = ClickedPhoto String
+    | ClickedSize ThumnailSize
+    | ClickedSupriseMe
 
 
 type ThumnailSize
@@ -57,7 +59,7 @@ getThumbnailUrls selectedUrl thumb =
     img
         [ src (urlPrefix ++ thumb.url)
         , classList [ ( "selected", selectedUrl == thumb.url ) ]
-        , onClick { description = "ClickedPhoto", data = thumb.url }
+        , onClick (ClickedPhoto thumb.url)
         ]
         []
 
@@ -66,7 +68,7 @@ view : Model -> Html Msg
 view model =
     div [ class "content" ]
         [ h1 [] [ text "PhotoGroove" ]
-        , button [ onClick { description = "ClickedSupriseMe", data = "" } ] [ text "Suprise Me!" ]
+        , button [ onClick ClickedSupriseMe ] [ text "Suprise Me!" ]
         , h3 [] [ text "Thumnail Size:" ]
         , div [ id "choose-size" ] ([ Small, Medium, Large ] |> List.map viewSizeChooser)
         , div [ id "thumbnails", class (sizeToString model.size) ]
@@ -99,15 +101,17 @@ getPhotoUrl index photoArray =
 
 update : Msg -> Model -> Model
 update msg model =
-    case msg.description of
-        "ClickedPhoto" ->
-            { model | selectedUrl = msg.data }
+    case msg of -- Union types parsed here 
+        ClickedPhoto url ->
+            { model | selectedUrl = url }
 
-        "ClickedSupriseMe" ->
+        ClickedSupriseMe ->
             { model | selectedUrl = "2.jpeg" }
 
-        _ ->
-            model
+        ClickedSize thumbnailSize -> 
+            {model | size = thumbnailSize }
+
+
 
 
 main : Program () Model Msg
