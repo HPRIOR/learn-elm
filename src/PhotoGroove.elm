@@ -8,6 +8,10 @@ import Html.Events exposing (onClick)
 import Random
 
 
+
+-- Types
+
+
 type alias PhotoUrl =
     { url : String }
 
@@ -16,7 +20,7 @@ type Msg
     = ClickedPhoto String
     | ClickedSize ThumbnailSize
     | ClickedSurpriseMe
-    | GotSelectedIndex Int
+    | GotRandomPhoto PhotoUrl
 
 
 type ThumbnailSize
@@ -26,7 +30,17 @@ type ThumbnailSize
 
 
 type alias Model =
-    { photos : List PhotoUrl, selectedUrl : String, size : ThumbnailSize }
+    { status : Status, size : ThumbnailSize }
+
+
+type Status
+    = Loading
+    | Loaded (List PhotoUrl) String
+    | Errored String
+
+
+
+-- View
 
 
 urlPrefix : String
@@ -70,66 +84,88 @@ getThumbnailUrls selectedUrl thumb =
         []
 
 
+viewLoaded : List PhotoUrl -> String -> ThumbnailSize -> List (Html Msg)
+viewLoaded photos selectedUrl chosenSize =
+    [ h1 [] [ text "PhotoGroove" ]
+    , button [ onClick ClickedSurpriseMe ] [ text "Suprise Me!" ]
+    , h3 [] [ text "Thumnail Size:" ]
+    , div [ id "choose-size" ] <| ([ Small, Medium, Large ] |> List.map viewSizeChooser)
+    , div [ id "thumbnails", class (sizeToString chosenSize) ]
+        (photos |> List.map (getThumbnailUrls selectedUrl))
+    , img
+        [ class (sizeToString chosenSize)
+        , src (urlPrefix ++ "large/" ++ selectedUrl)
+        ]
+        []
+    ]
+
+
 view : Model -> Html Msg
 view model =
-    div [ class "content" ]
-        [ h1 [] [ text "PhotoGroove" ]
-        , button [ onClick ClickedSurpriseMe ] [ text "Suprise Me!" ]
-        , h3 [] [ text "Thumnail Size:" ]
-        , div [ id "choose-size" ] <| [ Small, Medium, Large ] |> List.map viewSizeChooser
-        , div [ id "thumbnails", class (sizeToString model.size) ]
-            (model.photos |> List.map (getThumbnailUrls model.selectedUrl))
-        , img
-            [ class "large"
-            , src (urlPrefix ++ "large/" ++ model.selectedUrl)
-            ]
-            []
-        ]
+    div [ class "content" ] <|
+        case model.status of
+            Loaded photos selectedUrl ->
+                viewLoaded photos selectedUrl model.size
+
+            Loading ->
+                []
+
+            Errored errorMessage ->
+                [ text ("Error: " ++ errorMessage) ]
+
+
+
+-- Model
 
 
 initModel : Model
 initModel =
-    { photos = [ { url = "1.jpeg" }, { url = "2.jpeg" }, { url = "3.jpeg" }, { url = "4.jpeg" } ] -- used to display images
-    , selectedUrl = "1.jpeg" -- used to display larger image
+    { status = Loading
     , size = Medium
     }
 
 
-photoArray : Array PhotoUrl
-photoArray =
-    Array.fromList initModel.photos
-
-
-randomPhotoPicker : Random.Generator Int
-randomPhotoPicker =
-    Random.int 0 (Array.length photoArray - 1)
-
-
-getPhotoUrl : Int -> String
-getPhotoUrl index =
-    case Array.get index photoArray of
-        Just photo ->
-            photo.url
-
-        Nothing ->
-            ""
+-- Update
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        -- Union types parsed here
-        ClickedPhoto url ->
-            ( { model | selectedUrl = url }, Cmd.none )
-
         ClickedSurpriseMe ->
-            ( model, Random.generate GotSelectedIndex randomPhotoPicker )
+            case model.status of
+                Loaded (firstPhoto :: otherPhotos) _ ->
+                    Random.uniform firstPhoto otherPhotos
+                    |> Random.generate GotRandomPhoto
+                    |>Tuple.pair model
+
+                Loaded [] _ ->
+                    ( model, Cmd.none )
+
+                Loading ->
+                    ( model, Cmd.none )
+
+                Errored _ ->
+                    ( model, Cmd.none )
 
         ClickedSize thumbnailSize ->
             ( { model | size = thumbnailSize }, Cmd.none )
 
-        GotSelectedIndex index ->
-            ( { model | selectedUrl = getPhotoUrl index }, Cmd.none )
+        ClickedPhoto url ->
+            ( { model | status = selectUrl url model.status }, Cmd.none )
+
+        GotRandomPhoto photo ->
+            ( { model | status = selectUrl photo.url model.status }, Cmd.none )
+
+
+selectUrl : String -> Status -> Status
+selectUrl url status =
+    case status of
+        Loaded photos _ ->
+            Loaded photos url
+
+        _ ->
+            status
+-- Main
 
 
 main : Program () Model Msg
