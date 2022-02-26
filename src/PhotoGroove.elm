@@ -125,6 +125,7 @@ initModel =
     }
 
 
+
 -- Update
 
 
@@ -135,8 +136,8 @@ update msg model =
             case model.status of
                 Loaded (firstPhoto :: otherPhotos) _ ->
                     Random.uniform firstPhoto otherPhotos
-                    |> Random.generate GotRandomPhoto
-                    |>Tuple.pair model
+                        |> Random.generate GotRandomPhoto
+                        |> Tuple.pair model
 
                 Loaded [] _ ->
                     ( model, Cmd.none )
@@ -165,6 +166,9 @@ selectUrl url status =
 
         _ ->
             status
+
+
+
 -- Main
 
 
