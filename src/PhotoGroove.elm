@@ -1,10 +1,10 @@
 module PhotoGroove exposing (main)
 
-import Array exposing (Array)
 import Browser exposing (..)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
+import Http
 import Random
 
 
@@ -21,6 +21,7 @@ type Msg
     | ClickedSize ThumbnailSize
     | ClickedSurpriseMe
     | GotRandomPhoto PhotoUrl
+    | GotPhotos (Result Http.Error String)
 
 
 type ThumbnailSize
@@ -87,8 +88,8 @@ getThumbnailUrls selectedUrl thumb =
 viewLoaded : List PhotoUrl -> String -> ThumbnailSize -> List (Html Msg)
 viewLoaded photos selectedUrl chosenSize =
     [ h1 [] [ text "PhotoGroove" ]
-    , button [ onClick ClickedSurpriseMe ] [ text "Suprise Me!" ]
-    , h3 [] [ text "Thumnail Size:" ]
+    , button [ onClick ClickedSurpriseMe ] [ text "Surprise Me!" ]
+    , h3 [] [ text "Thumbnail Size:" ]
     , div [ id "choose-size" ] <| ([ Small, Medium, Large ] |> List.map viewSizeChooser)
     , div [ id "thumbnails", class (sizeToString chosenSize) ]
         (photos |> List.map (getThumbnailUrls selectedUrl))
@@ -108,7 +109,7 @@ view model =
                 viewLoaded photos selectedUrl model.size
 
             Loading ->
-                []
+                [ text "Loading" ]
 
             Errored errorMessage ->
                 [ text ("Error: " ++ errorMessage) ]
@@ -156,6 +157,24 @@ update msg model =
 
         GotRandomPhoto photo ->
             ( { model | status = selectUrl photo.url model.status }, Cmd.none )
+
+        GotPhotos (Ok responseStr) ->
+            case String.split "," responseStr of
+                -- name urls given to array, while first element is also named
+                (firstUrl :: _) as urls ->
+                    let
+                        -- type aliases are also constructor functions
+                        photos =
+                            List.map PhotoUrl urls
+                    in
+                    ( { model | status = Loaded photos firstUrl }, Cmd.none )
+
+                [] ->
+                    ( { model | status = Errored "Could not find any photos" }, Cmd.none )
+
+        GotPhotos (Err _) ->
+            ( { model | status = Errored "Server error" }, Cmd.none )
+
 
 
 selectUrl : String -> Status -> Status
