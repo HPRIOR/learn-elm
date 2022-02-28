@@ -119,6 +119,14 @@ view model =
 -- Model
 
 
+initialCmd : Cmd Msg
+initialCmd =
+    Http.get
+        { url = "http://elm-in-action.com/photos/list"
+        , expect = Http.expectString  GotPhotos
+        }
+
+
 initModel : Model
 initModel =
     { status = Loading
@@ -176,7 +184,6 @@ update msg model =
             ( { model | status = Errored "Server error" }, Cmd.none )
 
 
-
 selectUrl : String -> Status -> Status
 selectUrl url status =
     case status of
@@ -194,7 +201,7 @@ selectUrl url status =
 main : Program () Model Msg
 main =
     Browser.element
-        { init = \flags -> ( initModel, Cmd.none )
+        { init = \flags -> ( initModel, initialCmd )
         , view = view
         , update = update
         , subscriptions = \model -> Sub.none
