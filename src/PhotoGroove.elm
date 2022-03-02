@@ -2,9 +2,11 @@ module PhotoGroove exposing (main)
 
 import Browser exposing (..)
 import Html exposing (..)
-import Html.Attributes exposing (..)
+import Html.Attributes exposing (class, classList, id, name, src, title, type_)
 import Html.Events exposing (onClick)
 import Http
+import Json.Decode exposing (Decoder, int, list, string, succeed)
+import Json.Decode.Pipeline exposing (optional, required)
 import Random
 
 
@@ -12,16 +14,27 @@ import Random
 -- Types
 
 
-type alias PhotoUrl =
-    { url : String }
+type alias Photo =
+    { url : String
+    , size : Int
+    , title : String
+    }
+
+
+photoDecoder : Decoder Photo
+photoDecoder =
+    succeed Photo
+        |> required "url" string
+        |> required "size" int
+        |> optional "title" string "(untitled)"
 
 
 type Msg
     = ClickedPhoto String
     | ClickedSize ThumbnailSize
     | ClickedSurpriseMe
-    | GotRandomPhoto PhotoUrl
-    | GotPhotos (Result Http.Error String)
+    | GotRandomPhoto Photo
+    | GotPhotos (Result Http.Error (List Photo))
 
 
 type ThumbnailSize
@@ -36,7 +49,7 @@ type alias Model =
 
 type Status
     = Loading
-    | Loaded (List PhotoUrl) String
+    | Loaded (List Photo) String
     | Errored String
 
 
@@ -75,22 +88,23 @@ sizeToString size =
             "large"
 
 
-getThumbnailUrls : String -> PhotoUrl -> Html Msg
+getThumbnailUrls : String -> Photo -> Html Msg
 getThumbnailUrls selectedUrl thumb =
     img
         [ src (urlPrefix ++ thumb.url)
+        , title (thumb.title ++ " [" ++ String.fromInt thumb.size ++ " KB]")
         , classList [ ( "selected", selectedUrl == thumb.url ) ]
         , onClick (ClickedPhoto thumb.url)
         ]
         []
 
 
-viewLoaded : List PhotoUrl -> String -> ThumbnailSize -> List (Html Msg)
+viewLoaded : List Photo -> String -> ThumbnailSize -> List (Html Msg)
 viewLoaded photos selectedUrl chosenSize =
     [ h1 [] [ text "PhotoGroove" ]
     , button [ onClick ClickedSurpriseMe ] [ text "Surprise Me!" ]
     , h3 [] [ text "Thumbnail Size:" ]
-    , div [ id "choose-size" ] <| ([ Small, Medium, Large ] |> List.map viewSizeChooser)
+    , div [ id "choose-size" ] ([ Small, Medium, Large ] |> List.map viewSizeChooser)
     , div [ id "thumbnails", class (sizeToString chosenSize) ]
         (photos |> List.map (getThumbnailUrls selectedUrl))
     , img
@@ -122,8 +136,8 @@ view model =
 initialCmd : Cmd Msg
 initialCmd =
     Http.get
-        { url = "http://elm-in-action.com/photos/list"
-        , expect = Http.expectString  GotPhotos
+        { url = "http://elm-in-action.com/photos/list.json"
+        , expect = Http.expectJson GotPhotos (list photoDecoder)
         }
 
 
@@ -166,19 +180,14 @@ update msg model =
         GotRandomPhoto photo ->
             ( { model | status = selectUrl photo.url model.status }, Cmd.none )
 
-        GotPhotos (Ok responseStr) ->
-            case String.split "," responseStr of
+        GotPhotos (Ok photos) ->
+            case photos of
                 -- name urls given to array, while first element is also named
-                (firstUrl :: _) as urls ->
-                    let
-                        -- type aliases are also constructor functions
-                        photos =
-                            List.map PhotoUrl urls
-                    in
-                    ( { model | status = Loaded photos firstUrl }, Cmd.none )
+                first :: _ ->
+                    ( { model | status = Loaded photos first.url }, Cmd.none )
 
                 [] ->
-                    ( { model | status = Errored "Could not find any photos" }, Cmd.none )
+                    ( { model | status = Errored "0 photos found" }, Cmd.none )
 
         GotPhotos (Err _) ->
             ( { model | status = Errored "Server error" }, Cmd.none )
@@ -201,8 +210,8 @@ selectUrl url status =
 main : Program () Model Msg
 main =
     Browser.element
-        { init = \flags -> ( initModel, initialCmd )
+        { init = \_ -> ( initModel, initialCmd )
         , view = view
         , update = update
-        , subscriptions = \model -> Sub.none
+        , subscriptions = \_ -> Sub.none
         }
