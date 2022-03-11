@@ -275,6 +275,7 @@ selectUrl url status =
             status
 
 
+rangeSlider : List (Attribute msg) -> List (Html msg) -> Html msg
 rangeSlider attributes children =
     node "range-slider" attributes children
 
@@ -291,7 +292,7 @@ onSlide toMsg =
 
 
 subscriptions : Model -> Sub Msg
-subscriptions model =
+subscriptions _ =
     activityChanges GotActivity
 
 

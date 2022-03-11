@@ -6304,7 +6304,7 @@ var $author$project$PhotoGroove$GotActivity = function (a) {
 	return {$: 'GotActivity', a: a};
 };
 var $author$project$PhotoGroove$activityChanges = _Platform_incomingPort('activityChanges', $elm$json$Json$Decode$string);
-var $author$project$PhotoGroove$subscriptions = function (model) {
+var $author$project$PhotoGroove$subscriptions = function (_v0) {
 	return $author$project$PhotoGroove$activityChanges($author$project$PhotoGroove$GotActivity);
 };
 var $author$project$PhotoGroove$Errored = function (a) {
