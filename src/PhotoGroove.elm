@@ -24,6 +24,9 @@ type alias FilterOptions =
 port setFilters : FilterOptions -> Cmd msg
 
 
+port activityChanges : (String -> msg) -> Sub msg
+
+
 type alias Photo =
     { url : String
     , size : Int
@@ -287,11 +290,25 @@ onSlide toMsg =
 -- Main
 
 
-main : Program () Model Msg
+subscriptions : Model -> Sub Msg
+subscriptions model =
+    activityChanges GotActivity
+
+
+init : Float -> ( Model, Cmd Msg )
+init flags =
+    let
+        activity =
+            "Initialising Pasta.v" ++ String.fromFloat flags
+    in
+    ( { initModel | activity = activity }, initialCmd )
+
+
+main : Program Float Model Msg
 main =
     Browser.element
-        { init = \_ -> ( initModel, initialCmd )
+        { init = init
         , view = view
         , update = update
-        , subscriptions = \_ -> Sub.none
+        , subscriptions = subscriptions
         }
