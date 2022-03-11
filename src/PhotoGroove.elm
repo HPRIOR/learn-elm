@@ -1,17 +1,27 @@
-module PhotoGroove exposing (main)
+port module PhotoGroove exposing (main)
 
 import Browser exposing (..)
 import Html exposing (..)
-import Html.Attributes exposing (class, classList, id, name, src, title, type_)
-import Html.Events exposing (onClick)
+import Html.Attributes as Attr exposing (class, classList, id, name, src, title, type_)
+import Html.Events exposing (on, onClick)
 import Http
-import Json.Decode exposing (Decoder, int, list, string, succeed)
+import Json.Decode exposing (Decoder, at, int, list, string, succeed)
 import Json.Decode.Pipeline exposing (optional, required)
+import Json.Encode as Encode
 import Random
 
 
 
 -- Types
+
+
+type alias FilterOptions =
+    { url : String
+    , filters : List { name : String, amount : Float }
+    }
+
+
+port setFilters : FilterOptions -> Cmd msg
 
 
 type alias Photo =
@@ -35,6 +45,10 @@ type Msg
     | ClickedSurpriseMe
     | GotRandomPhoto Photo
     | GotPhotos (Result Http.Error (List Photo))
+    | GotActivity String
+    | SlidHue Int
+    | SlidRipple Int
+    | SlidNoise Int
 
 
 type ThumbnailSize
@@ -44,7 +58,13 @@ type ThumbnailSize
 
 
 type alias Model =
-    { status : Status, size : ThumbnailSize }
+    { status : Status
+    , size : ThumbnailSize
+    , activity : String
+    , hue : Int
+    , ripple : Int
+    , noise : Int
+    }
 
 
 type Status
@@ -99,20 +119,40 @@ getThumbnailUrls selectedUrl thumb =
         []
 
 
-viewLoaded : List Photo -> String -> ThumbnailSize -> List (Html Msg)
-viewLoaded photos selectedUrl chosenSize =
+viewLoaded : List Photo -> String -> Model -> List (Html Msg)
+viewLoaded photos selectedUrl model =
     [ h1 [] [ text "PhotoGroove" ]
     , button [ onClick ClickedSurpriseMe ] [ text "Surprise Me!" ]
+    , div [ class "activity" ] [ text model.activity ]
+    , div [ class "filters" ]
+        [ viewFilter SlidHue "Hue" model.hue
+        , viewFilter SlidRipple "Ripple" model.ripple
+        , viewFilter SlidNoise "Noise" model.noise
+        ]
     , h3 [] [ text "Thumbnail Size:" ]
     , div [ id "choose-size" ] ([ Small, Medium, Large ] |> List.map viewSizeChooser)
-    , div [ id "thumbnails", class (sizeToString chosenSize) ]
+    , div [ id "thumbnails", class (sizeToString model.size) ]
         (photos |> List.map (getThumbnailUrls selectedUrl))
-    , img
-        [ class (sizeToString chosenSize)
-        , src (urlPrefix ++ "large/" ++ selectedUrl)
+    , canvas
+        [ id "main-canvas"
+        , class "large"
         ]
         []
     ]
+
+
+viewFilter : (Int -> msg) -> String -> Int -> Html msg
+viewFilter toMsg name magnitude =
+    div [ class "filter-slider" ]
+        [ label [] [ text name ]
+        , rangeSlider
+            [ Attr.max "11"
+            , Attr.property "val" (Encode.int magnitude)
+            , onSlide toMsg
+            ]
+            []
+        , label [] [ text (String.fromInt magnitude) ]
+        ]
 
 
 view : Model -> Html Msg
@@ -120,7 +160,7 @@ view model =
     div [ class "content" ] <|
         case model.status of
             Loaded photos selectedUrl ->
-                viewLoaded photos selectedUrl model.size
+                viewLoaded photos selectedUrl model
 
             Loading ->
                 [ text "Loading" ]
@@ -145,6 +185,10 @@ initModel : Model
 initModel =
     { status = Loading
     , size = Medium
+    , activity = ""
+    , hue = 5
+    , ripple = 5
+    , noise = 5
     }
 
 
@@ -162,35 +206,60 @@ update msg model =
                         |> Random.generate GotRandomPhoto
                         |> Tuple.pair model
 
-                Loaded [] _ ->
-                    ( model, Cmd.none )
-
-                Loading ->
-                    ( model, Cmd.none )
-
-                Errored _ ->
+                _ ->
                     ( model, Cmd.none )
 
         ClickedSize thumbnailSize ->
             ( { model | size = thumbnailSize }, Cmd.none )
 
         ClickedPhoto url ->
-            ( { model | status = selectUrl url model.status }, Cmd.none )
+            applyFilters { model | status = selectUrl url model.status }
 
         GotRandomPhoto photo ->
-            ( { model | status = selectUrl photo.url model.status }, Cmd.none )
+            applyFilters { model | status = selectUrl photo.url model.status }
 
         GotPhotos (Ok photos) ->
             case photos of
-                -- name urls given to array, while first element is also named
                 first :: _ ->
-                    ( { model | status = Loaded photos first.url }, Cmd.none )
+                    applyFilters { model | status = Loaded photos first.url }
 
                 [] ->
                     ( { model | status = Errored "0 photos found" }, Cmd.none )
 
         GotPhotos (Err _) ->
             ( { model | status = Errored "Server error" }, Cmd.none )
+
+        GotActivity activity ->
+            ( { model | activity = activity }, Cmd.none )
+
+        SlidHue hue ->
+            applyFilters { model | hue = hue }
+
+        SlidNoise noise ->
+            applyFilters { model | noise = noise }
+
+        SlidRipple ripple ->
+            applyFilters { model | ripple = ripple }
+
+
+applyFilters : Model -> ( Model, Cmd Msg )
+applyFilters model =
+    case model.status of
+        Loaded _ selectedUrl ->
+            let
+                filters =
+                    [ { name = "Hue", amount = toFloat model.hue / 11 }
+                    , { name = "Ripple", amount = toFloat model.ripple / 11 }
+                    , { name = "Noise", amount = toFloat model.noise / 11 }
+                    ]
+
+                url =
+                    urlPrefix ++ "large/" ++ selectedUrl
+            in
+            ( model, setFilters { url = url, filters = filters } )
+
+        _ ->
+            ( model, Cmd.none )
 
 
 selectUrl : String -> Status -> Status
@@ -201,6 +270,17 @@ selectUrl url status =
 
         _ ->
             status
+
+
+rangeSlider attributes children =
+    node "range-slider" attributes children
+
+
+onSlide : (Int -> msg) -> Attribute msg
+onSlide toMsg =
+    at [ "detail", "userSlidTo" ] int
+        |> Json.Decode.map toMsg
+        |> on "slide"
 
 
 
