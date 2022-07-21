@@ -8,48 +8,48 @@
 </head>
 
 <body>
-<!-- setting up the elm app, pointing it towards our main PhotoGroove.elm -->
-<div id="app"></div>
-<script src="http://elm-in-action.com/pasta.js"></script>
-<script src="app.js"></script>
-<script>
-    class RangeSlider extends HTMLElement {
-        connectedCallback() {
-            let input = document.createElement("input");
-            this.appendChild(input);
-            let jsr = new JSR(input, {
-                max: this.max,
-                values: [this.val],
-                sliders: 1,
-                grid: false
-            });
-
-            jsr.addEventListener("update", (_, value) => {
-                let event = new CustomEvent("slide", {
-                    detail: {userSlidTo: value}
+    <!-- setting up the elm app, pointing it towards our main PhotoGroove.elm -->
+    <div id="app"></div>
+    <script src="http://elm-in-action.com/pasta.js"></script>
+    <script src="app.js"></script>
+    <script>
+        class RangeSlider extends HTMLElement {
+            connectedCallback() {
+                let input = document.createElement("input");
+                this.appendChild(input);
+                let jsr = new JSR(input, {
+                    max: this.max,
+                    values: [this.val],
+                    sliders: 1,
+                    grid: false
                 });
-                this.dispatchEvent(event);
-            });
+
+                jsr.addEventListener("update", (_, value) => {
+                    let event = new CustomEvent("slide", {
+                        detail: {userSlidTo: value}
+                    });
+                    this.dispatchEvent(event);
+                });
+            }
         }
-    }
 
-    window.customElements.define("range-slider", RangeSlider);
-    let app = Elm.PhotoGroove.init({
-        node: document.getElementById("app"),
-        flags: Pasta.version
-    });
-
-    app.ports.setFilters.subscribe((options) => {
-        requestAnimationFrame(() =>{
-            Pasta.apply(document.getElementById("main-canvas"), options);
+        window.customElements.define("range-slider", RangeSlider);
+        let app = Elm.PhotoGroove.init({
+            node: document.getElementById("app"),
+            flags: Pasta.version
         });
-    });
 
-    Pasta.addActivityListener((activity) => {
-        console.log("Got some activity to send to Elm: ", activity)
-        app.ports.activityChanges.send(activity);
-    });
-</script>
+        app.ports.setFilters.subscribe((options) => {
+            requestAnimationFrame(() => {
+                Pasta.apply(document.getElementById("main-canvas"), options);
+            });
+        });
+
+        Pasta.addActivityListener((activity) => {
+            console.log("Got some activity to send to Elm: ", activity)
+            app.ports.activityChanges.send(activity);
+        });
+    </script>
 </body>
 
 </html>
